@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heads Up Hold'em Trainer</title>
+<meta name="theme-color" content="#02723B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HuH Trainer">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --green: #02723B;
+    --blue: #022652;
+    --right: #B9F6CA;
+    --wrong: #FFCDD2;
+    --red-suit: #C62828;
+    --nowin: #E53935;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--green);
+    color: #fff;
+    font: 17px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Daniels Logo unten in voller Breite; der obere Rand läuft im Bild selbst ins Tischgrün aus */
+  #bg {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none;
+    aspect-ratio: 1180 / 1280; max-height: 100vh;
+    background: url(background.jpg) center bottom / cover no-repeat;
+  }
+  main {
+    position: relative; z-index: 1;
+    max-width: 520px; margin: 0 auto;
+    padding: calc(16px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  h1 { margin: 8px 0; font-size: 30px; text-align: center; color: #000; }
+  h2 { margin: 0; font-size: 26px; }
+  h3 { margin: 0; font-size: 20px; }
+  p { margin: 0; }
+  /* bleibt lesbar, wenn Text über dem Logo im Hintergrund liegt */
+  main p, main h3, .label { text-shadow: 0 1px 3px rgba(0, 0, 0, .9), 0 0 8px rgba(0, 0, 0, .6); }
+  /* Aufgabentext schwarz (Wunsch von Daniel) – mit hellem Schein statt dunklem Schatten */
+  main p.task { color: #000; font-size: 18px; font-weight: 600; white-space: pre-line; text-shadow: 0 0 6px rgba(255, 255, 255, .35); }
+  button { font: inherit; cursor: pointer; }
+  .btn {
+    width: 100%; min-height: 48px; padding: 10px 16px;
+    background: var(--blue); color: #fff; border: 0; border-radius: 24px;
+    font-weight: 500;
+  }
+  .btn:active { filter: brightness(1.4); }
+  .btn.secondary { background: rgba(2, 38, 82, .3); border: 2px solid var(--blue); }
+  /* rote Schrift braucht einen fast deckenden Grund, sonst geht sie über dem Logo unter */
+  .btn.nowin { color: var(--nowin); font-weight: 700; background: rgba(2, 38, 82, .85); }
+  .back {
+    align-self: flex-start; background: none; border: 0; color: #fff;
+    padding: 8px 4px; font-weight: 500;
+  }
+  .spacer { height: 8px; }
+  .box { background: rgba(0, 0, 0, .25); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; }
+  .row b { white-space: nowrap; }
+  .feedback { font-size: 18px; font-weight: 600; white-space: pre-line; }
+  .ok { color: var(--right); }
+  .bad { color: var(--wrong); }
+  input[type=text] {
+    width: 100%; font: inherit; font-size: 20px; color: #fff;
+    background: rgba(0, 0, 0, .15); border: 1px solid rgba(255, 255, 255, .7); border-radius: 6px;
+    padding: 14px 12px;
+  }
+  input[type=text]:focus { outline: none; border: 2px solid #fff; }
+  input::placeholder { color: rgba(255, 255, 255, .55); }
+  /* Karten */
+  .label { font-weight: 600; }
+  .cards { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card {
+    background: #fff; color: #000; border: 1px solid #999; border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .35); font-weight: 700;
+    font-size: 30px; padding: 22px 16px;
+  }
+  .card.red { color: var(--red-suit); }
+  dialog {
+    background: #1E6B3E; color: #fff; border: 0; border-radius: 16px; padding: 20px; max-width: 320px;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<main id="app"></main>
+<dialog id="confirm">
+  <h3>Statistik zurücksetzen?</h3>
+  <p style="margin-top:8px">Alle Zahlen werden auf null gesetzt.</p>
+  <div class="actions">
+    <button class="back" onclick="this.closest('dialog').close('no')">Abbrechen</button>
+    <button class="back" onclick="this.closest('dialog').close('yes')">Zurücksetzen</button>
+  </div>
+</dialog>
+<script>
+"use strict";
+
+/* ---------- Karten und Pokerhände (wie Cards.kt / Holdem.kt der Android-App) ---------- */
+
+const SUITS = [
+  { symbol: "♠", red: false }, { symbol: "♥", red: true },
+  { symbol: "♦", red: true }, { symbol: "♣", red: false },
+];
+
+const rnd = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1)); // lo..hi inklusive
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = (arr) => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const range = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+
+/** rank: 2..10, 11 = Bube, 12 = Dame, 13 = König, 14 = Ass */
+const card = (rank, suit) => ({ rank, suit });
+const label = (c) => ({ 11: "B", 12: "D", 13: "K", 14: "A" }[c.rank] || String(c.rank)) + c.suit.symbol;
+/** Gemischtes 52-Karten-Deck – jede Karte nur einmal. */
+const shuffledDeck = () => shuffle(SUITS.flatMap((s) => range(2, 14).map((r) => card(r, s))));
+
+/** Pokerhände von oben nach unten */
+const HAND = {
+  ROYAL_FLUSH: "Royal Flush", STRAIGHT_FLUSH: "Straight Flush", FOUR_OF_A_KIND: "Vierling",
+  FULL_HOUSE: "Full House", FLUSH: "Flush", STRAIGHT: "Straße", THREE_OF_A_KIND: "Drilling",
+  TWO_PAIR: "Zwei Paar", ONE_PAIR: "Ein Paar", HIGH_CARD: "Hohe Karte",
+};
+const BET = { ODDS_WIN: "Odds win", ODDS_BAD_BEAT: "Odds Bad Beat", TRIPS_PLUS: "Trips Plus", BONUS_JACKPOT: "Bonus Jackpot" };
+
+/** Auszahlungstabelle von Daniel (Quote x:1). Was hier fehlt, wird nicht ausgezahlt. */
+const PAYTABLE = [
+  ["ROYAL_FLUSH", "ODDS_WIN", 500], ["ROYAL_FLUSH", "TRIPS_PLUS", 100], ["ROYAL_FLUSH", "BONUS_JACKPOT", 2000],
+  ["STRAIGHT_FLUSH", "ODDS_WIN", 50], ["STRAIGHT_FLUSH", "ODDS_BAD_BEAT", 500], ["STRAIGHT_FLUSH", "TRIPS_PLUS", 40], ["STRAIGHT_FLUSH", "BONUS_JACKPOT", 250],
+  ["FOUR_OF_A_KIND", "ODDS_WIN", 10], ["FOUR_OF_A_KIND", "ODDS_BAD_BEAT", 25], ["FOUR_OF_A_KIND", "TRIPS_PLUS", 30], ["FOUR_OF_A_KIND", "BONUS_JACKPOT", 50],
+  ["FULL_HOUSE", "ODDS_WIN", 3], ["FULL_HOUSE", "ODDS_BAD_BEAT", 6], ["FULL_HOUSE", "TRIPS_PLUS", 8], ["FULL_HOUSE", "BONUS_JACKPOT", 7],
+  ["FLUSH", "ODDS_WIN", 1.5], ["FLUSH", "ODDS_BAD_BEAT", 5], ["FLUSH", "TRIPS_PLUS", 7], ["FLUSH", "BONUS_JACKPOT", 5],
+  ["STRAIGHT", "ODDS_WIN", 1], ["STRAIGHT", "ODDS_BAD_BEAT", 4], ["STRAIGHT", "TRIPS_PLUS", 4],
+  ["THREE_OF_A_KIND", "TRIPS_PLUS", 3],
+].map(([hand, bet, odds]) => ({ hand, bet, odds }));
+
+const quoteFor = (hand, bet) => PAYTABLE.find((q) => q.hand === hand && q.bet === bet)?.odds ?? null;
+
+const MIN_BET = 5, MAX_BET = 100, JACKPOT_CHIP = 2.5;
+
+const eurFmt0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+const eurFmt2 = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const eur = (v) => (v % 1 === 0 ? eurFmt0 : eurFmt2).format(v) + " €";
+/** 1.5 -> "1,5:1" */
+const quoteText = (odds) => String(odds).replace(".", ",") + ":1";
+
+/** Höchste Karte der Straße, oder null. A-2-3-4-5 zählt als Straße bis zur 5. */
+function straightHigh(ranks) {
+  const r = [...new Set(ranks)].sort((a, b) => a - b);
+  if (r.length !== 5) return null;
+  if (r[4] - r[0] === 4) return r[4];
+  if (r.join() === "2,3,4,5,14") return 5;
+  return null;
+}
+
+function evaluate(cards) {
+  const ranks = cards.map((c) => c.rank);
+  const flush = new Set(cards.map((c) => c.suit)).size === 1;
+  const high = straightHigh(ranks);
+  const n = {}; ranks.forEach((r) => n[r] = (n[r] || 0) + 1);
+  const counts = Object.values(n).sort((a, b) => b - a);
+  if (flush && high === 14) return "ROYAL_FLUSH";
+  if (flush && high !== null) return "STRAIGHT_FLUSH";
+  if (counts[0] === 4) return "FOUR_OF_A_KIND";
+  if (counts[0] === 3 && counts[1] === 2) return "FULL_HOUSE";
+  if (flush) return "FLUSH";
+  if (high !== null) return "STRAIGHT";
+  if (counts[0] === 3) return "THREE_OF_A_KIND";
+  if (counts[0] === 2 && counts[1] === 2) return "TWO_PAIR";
+  if (counts[0] === 2) return "ONE_PAIR";
+  return "HIGH_CARD";
+}
+
+/** Ränge einer Straße mit der höchsten Karte high (5 = A-2-3-4-5). */
+const straightRanks = (high) => high === 5 ? [14, 2, 3, 4, 5] : range(high - 4, high);
+
+/** Fünf verschiedene Karten, die genau die gewünschte Hand ergeben. */
+function randomHand(target) {
+  for (;;) {
+    const suit = pick(SUITS);
+    let cards;
+    switch (target) {
+      case "ROYAL_FLUSH": cards = range(10, 14).map((r) => card(r, suit)); break;
+      case "STRAIGHT_FLUSH": cards = straightRanks(rnd(5, 13)).map((r) => card(r, suit)); break;
+      case "STRAIGHT": cards = straightRanks(rnd(5, 14)).map((r) => card(r, pick(SUITS))); break;
+      case "FLUSH": cards = shuffle(range(2, 14)).slice(0, 5).map((r) => card(r, suit)); break;
+      case "FOUR_OF_A_KIND": {
+        const r = rnd(2, 14);
+        cards = [...SUITS.map((s) => card(r, s)), shuffledDeck().find((c) => c.rank !== r)];
+        break;
+      }
+      case "FULL_HOUSE": {
+        const [r3, r2] = shuffle(range(2, 14));
+        cards = [...shuffle(SUITS).slice(0, 3).map((s) => card(r3, s)), ...shuffle(SUITS).slice(0, 2).map((s) => card(r2, s))];
+        break;
+      }
+      default: cards = shuffledDeck().slice(0, 5);
+    }
+    const distinct = new Set(cards.map(label)).size === 5;
+    if (distinct && evaluate(cards) === target) return shuffle(cards);
+  }
+}
+
+/* ---------- Aufgaben ---------- */
+
+const recentBets = [];
+/** Einsatz 5–100 € in 5er-Schritten, ohne Wiederholung der letzten 5 Einsätze. */
+function randomBet() {
+  let bet;
+  do { bet = rnd(MIN_BET / 5, MAX_BET / 5) * 5; } while (recentBets.includes(bet));
+  recentBets.push(bet);
+  if (recentBets.length > 5) recentBets.shift();
+  return bet;
+}
+
+/** Alle zahlenden Hände gleich oft, die schwachen (zahlen nichts) seltener. */
+const HAND_WEIGHTS = [
+  ["ROYAL_FLUSH", 4], ["STRAIGHT_FLUSH", 5], ["FOUR_OF_A_KIND", 5], ["FULL_HOUSE", 5], ["FLUSH", 5],
+  ["STRAIGHT", 5], ["THREE_OF_A_KIND", 5], ["TWO_PAIR", 2], ["ONE_PAIR", 2], ["HIGH_CARD", 1],
+];
+/** Die letzten Hände – sie kommen nicht gleich wieder dran. */
+const recentHands = [];
+
+function weighted(items) {
+  let n = rnd(0, items.reduce((s, [, w]) => s + w, 0) - 1);
+  for (const [item, w] of items) { if (n < w) return item; n -= w; }
+  return items[items.length - 1][0];
+}
+
+/**
+ * Frage-Objekt: answer = null heißt "Kein Gewinn"; progressive = true heißt "Progressiver Jackpot".
+ * Kartenbild-Übung: 2 Hole Cards + 3 Community Cards, die Hand muss man selbst erkennen.
+ */
+function handQuestion() {
+  const hand = weighted(HAND_WEIGHTS.filter(([h]) => !recentHands.includes(h)));
+  recentHands.push(hand);
+  if (recentHands.length > 3) recentHands.shift();
+  // Royal Flush kann nicht verlieren; unter der Straße zahlt Odds nichts → "Kein Gewinn"
+  const bet = pick(Object.keys(BET).filter((b) => !(hand === "ROYAL_FLUSH" && b === "ODDS_BAD_BEAT")));
+  const stake = bet === "BONUS_JACKPOT" ? JACKPOT_CHIP : randomBet();
+  const cards = randomHand(hand);
+  const odds = quoteFor(hand, bet);
+  const header = {
+    ODDS_WIN: `Gast gewinnt gegen die Bank. Ante und Odds je ${eur(stake)}. Wie hoch ist die Odds-Auszahlung?`,
+    ODDS_BAD_BEAT: `Gast verliert gegen die Bank. Ante und Odds je ${eur(stake)}. Wie hoch ist die Odds-Auszahlung?`,
+    TRIPS_PLUS: `Trips Plus-Einsatz ${eur(stake)}. Wie hoch ist die Auszahlung?`,
+    BONUS_JACKPOT: `Bonus Jackpot-Einsatz ${eur(stake)}. Wie hoch ist die Auszahlung?`,
+  }[bet];
+  const jackpot = bet === "BONUS_JACKPOT";
+  const base = { header, holeCards: cards.slice(0, 2), community: cards.slice(2), offerNoWin: true, offerProgressive: jackpot };
+  // Die Karten zeigen Hole Cards + Flop: ein Straight Flush ist hier immer "geflopt"
+  if (jackpot && hand === "STRAIGHT_FLUSH") return {
+    ...base, answer: null, progressive: true, answerText: "Progressiver Jackpot",
+    explanation: "Flopped Straight Flush – Bonus Jackpot: progressiver Jackpot",
+  };
+  if (odds === null) return {
+    ...base, answer: null, answerText: "Kein Gewinn",
+    explanation: {
+      ODDS_WIN: `${HAND[hand]}: Odds bleibt unbezahlt stehen – Odds win zahlt erst ab Straße.`,
+      ODDS_BAD_BEAT: `${HAND[hand]}: Odds-Einsatz verloren – Bad Beat zahlt erst ab Straße.`,
+    }[bet] || `${HAND[hand]}: ${BET[bet]} zahlt hier nichts.`,
+  };
+  const win = stake * odds;
+  return {
+    ...base, answer: win, answerText: eur(win),
+    explanation: `${HAND[hand]} – ${BET[bet]} ${quoteText(odds)} × ${eur(stake)} = ${eur(win)}`,
+  };
+}
+
+/** Quoten-Übung: "Was ist die Auszahlung bei Straße – Trips Plus?" → 4:1 */
+function quoteQuestion() {
+  // Ein Eintrag mehr für den Flopped Straight Flush (progressiver Jackpot)
+  const i = rnd(0, PAYTABLE.length);
+  if (i === PAYTABLE.length) return {
+    header: "Was ist die Auszahlung bei\nFlopped Straight Flush – Bonus Jackpot?",
+    answer: null, progressive: true, answerText: "Progressiver Jackpot",
+    explanation: "Flopped Straight Flush – Bonus Jackpot: progressiver Jackpot",
+    placeholder: "Quote", offerProgressive: true,
+  };
+  const q = PAYTABLE[i];
+  return {
+    header: `Was ist die Auszahlung bei\n${HAND[q.hand]} – ${BET[q.bet]}?`,
+    answer: q.odds, answerText: quoteText(q.odds),
+    explanation: `${HAND[q.hand]} – ${BET[q.bet]}: ${quoteText(q.odds)}`,
+    placeholder: "Quote (z. B. 8 für 8:1)", offerProgressive: true,
+  };
+}
+
+/** "8:1", "8", "1,5", "172.50" oder "5.000" (Tausenderpunkt) */
+function parseAnswer(s) {
+  s = s.trim().replace(/:1$/, "").replace(/\s|€/g, "");
+  if (s.includes(",") || /^\d+(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  const v = Number(s.replace(",", "."));
+  return s && !isNaN(v) ? v : null;
+}
+
+/* ---------- Statistik (im Browser gespeichert) ---------- */
+
+const Stats = {
+  _data() { try { return JSON.parse(localStorage.getItem("stats")) || {}; } catch { return {}; } },
+  _save(d) { try { localStorage.setItem("stats", JSON.stringify(d)); } catch {} },
+  get() { const d = this._data(); return { total: d.total || 0, right: d.right || 0, bestRun: d.bestRun || 0 }; },
+  record(ok) { const d = this._data(); d.total = (d.total || 0) + 1; d.right = (d.right || 0) + (ok ? 1 : 0); this._save(d); },
+  recordRun(n) { const d = this._data(); if (n > (d.bestRun || 0)) { d.bestRun = n; this._save(d); } },
+  reset() { this._save({}); },
+};
+
+/* ---------- Seiten ---------- */
+
+const app = document.getElementById("app");
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+const cardHtml = (c) => `<div class="card${c.suit.red ? " red" : ""}">${label(c)}</div>`;
+const backBtn = (text, hash) => `<button class="back" data-go="${hash}">${text}</button>`;
+function go(hash) { location.hash = hash; }
+app.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go); });
+
+function homeScreen() {
+  app.innerHTML = `
+    <h1>Heads Up Hold'em Trainer</h1>
+    <button class="btn" data-go="#/hands">Auszahlung nach Kartenbild</button>
+    <button class="btn" data-go="#/quotes">Auszahlungsquoten</button>
+    <div class="spacer"></div>
+    <button class="btn" data-go="#/stats">Statistik</button>`;
+}
+
+function statsScreen() {
+  const s = Stats.get();
+  app.innerHTML = `
+    ${backBtn("← Zurück", "#/")}
+    <h2>Statistik</h2>
+    <div class="box">
+      <div class="row"><span>Durchgänge (Aufgaben)</span><b>${s.total}</b></div>
+      <div class="row"><span>Richtige Antworten</span><b>${s.right}${s.total ? ` (${Math.floor(s.right * 100 / s.total)} %)` : ""}</b></div>
+      <div class="row"><span>Falsche Antworten</span><b>${s.total - s.right}</b></div>
+      <div class="row"><span>Bester Durchlauf (richtig in Folge)</span><b>${s.bestRun}</b></div>
+    </div>
+    <button class="btn secondary" id="reset">Statistik zurücksetzen</button>`;
+  const dlg = document.getElementById("confirm");
+  document.getElementById("reset").onclick = () => {
+    dlg.returnValue = "";
+    dlg.onclose = () => { if (dlg.returnValue === "yes") { Stats.reset(); statsScreen(); } };
+    dlg.showModal();
+  };
+}
+
+function exerciseScreen(title, next) {
+  let right = 0, total = 0, streak = 0, q = next(), feedback = null, wasRight = false;
+
+  /** given = null: "Kein Gewinn" bzw. "Progressiver Jackpot" gedrückt */
+  function submit(given, progressive = false) {
+    const ok = q.progressive ? progressive
+      : q.answer === null ? given === null && !progressive
+      : given !== null && Math.abs(given - q.answer) < 0.001;
+    total++; Stats.record(ok);
+    if (ok) { right++; streak++; Stats.recordRun(streak); } else streak = 0;
+    wasRight = ok;
+    feedback = ok ? "Richtig! " + q.explanation : `Falsch. Richtig ist: ${q.answerText}\n${q.explanation}`;
+    render();
+  }
+
+  function render() {
+    app.innerHTML = `
+      ${backBtn("← Zurück", "#/")}
+      <h3>${esc(title)}</h3>
+      <p>Richtig: ${right} / ${total}${streak > 1 ? `   ·   Serie: ${streak}` : ""}</p>
+      ${q.holeCards ? `
+        <div class="label">Hole Cards</div>
+        <div class="cards">${q.holeCards.map(cardHtml).join("")}</div>
+        <div class="label">Community Cards</div>
+        <div class="cards">${q.community.map(cardHtml).join("")}</div>` : ""}
+      <p class="task">${esc(q.header)}</p>
+      ${feedback === null ? `
+        <input type="text" id="answer" inputmode="decimal" autocomplete="off" placeholder="${esc(q.placeholder || "Auszahlung in €")}">
+        <button class="btn" id="check">Prüfen</button>
+        ${q.offerNoWin ? `<button class="btn secondary nowin" id="nowin">Kein Gewinn</button>` : ""}
+        ${q.offerProgressive ? `<button class="btn secondary" id="prog">Progressiver Jackpot</button>` : ""}
+      ` : `
+        <p class="feedback ${wasRight ? "ok" : "bad"}">${esc(feedback)}</p>
+        <button class="btn" id="next">Weiter</button>
+      `}`;
+    const $ = (id) => document.getElementById(id);
+    if (feedback === null) {
+      const input = $("answer");
+      const check = () => { const v = parseAnswer(input.value); if (v !== null) submit(v); };
+      $("check").onclick = check;
+      input.onkeydown = (e) => { if (e.key === "Enter") check(); };
+      input.oninput = () => {
+        // Sobald die richtige Antwort dasteht, automatisch prüfen
+        const v = parseAnswer(input.value);
+        if (v !== null && q.answer !== null && Math.abs(v - q.answer) < 0.001) return submit(v);
+        // sonst nach unten scrollen, damit Prüfen sichtbar bleibt
+        $("check").scrollIntoView({ block: "nearest", behavior: "smooth" });
+      };
+      if ($("nowin")) $("nowin").onclick = () => submit(null);
+      if ($("prog")) $("prog").onclick = () => submit(null, true);
+    } else {
+      $("next").onclick = () => { q = next(); feedback = null; render(); };
+      $("next").scrollIntoView({ block: "end", behavior: "smooth" });
+    }
+  }
+  render();
+}
+
+/* ---------- Navigation über #-Adressen (Zurück-Taste des Browsers funktioniert) ---------- */
+
+function route() {
+  document.querySelector("dialog[open]")?.close();
+  const page = location.hash.replace(/^#\/?/, "");
+  window.scrollTo(0, 0);
+  if (page === "stats") return statsScreen();
+  if (page === "hands") return exerciseScreen("Auszahlung nach Kartenbild", handQuestion);
+  if (page === "quotes") return exerciseScreen("Auszahlungsquoten", quoteQuestion);
+  homeScreen();
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>
