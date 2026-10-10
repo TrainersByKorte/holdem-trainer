@@ -1,7 +1,9 @@
 {
+  "id": "/holdem-trainer/",
   "name": "Heads Up Hold'em Trainer",
   "short_name": "HuH Trainer",
-  "start_url": "./",
+  "start_url": "/holdem-trainer/",
+  "scope": "/holdem-trainer/",
   "display": "standalone",
   "background_color": "#019444",
   "theme_color": "#019444",
