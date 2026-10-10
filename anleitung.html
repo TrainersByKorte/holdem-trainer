@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Heads Up Hold'em Trainer – Installieren</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root { --green: #019444; --blue: #022652; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fff; color: #111;
+    font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .page { max-width: 640px; margin: 0 auto; padding: 32px 20px; }
+  header { text-align: center; }
+  header img.icon { width: 96px; height: 96px; border-radius: 22px; }
+  h1 { margin: 12px 0 4px; font-size: 30px; }
+  .sub { margin: 0; color: #444; }
+  .qr { display: block; width: 240px; height: 240px; margin: 24px auto 8px; }
+  .url { text-align: center; font-weight: 600; color: var(--blue); word-break: break-all; margin: 0 0 28px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  section { border: 2px solid var(--green); border-radius: 14px; padding: 16px 18px; }
+  h2 { margin: 0 0 10px; font-size: 21px; color: var(--blue); }
+  ol { margin: 0; padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  li:last-child { margin-bottom: 0; }
+  .note { margin-top: 24px; font-size: 14px; color: #444; text-align: center; }
+  @media (max-width: 560px) { .cols { grid-template-columns: 1fr; } }
+  /* Druck/PDF: alles auf eine A4-Seite */
+  @page { size: A4; margin: 12mm; }
+  @media print {
+    .page { padding: 0; }
+    .qr { width: 200px; height: 200px; margin: 16px auto 6px; }
+    .url { margin-bottom: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <img class="icon" src="icon-180.png" alt="">
+    <h1>Heads Up Hold'em Trainer</h1>
+    <p class="sub">Übungs-App für Auszahlungen und Quoten</p>
+  </header>
+
+  <img class="qr" src="qr.svg" alt="QR-Code zum Heads Up Hold'em Trainer">
+  <p class="url">trainersbykorte.github.io/holdem-trainer</p>
+
+  <div class="cols">
+    <section>
+      <h2>iPhone (iOS)</h2>
+      <ol>
+        <li>QR-Code mit der <b>Kamera</b> scannen und den Link in <b>Safari</b> öffnen.</li>
+        <li>Unten auf <b>Teilen</b> tippen (Quadrat mit Pfeil nach oben).</li>
+        <li>Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen.</li>
+        <li>Oben rechts auf <b>„Hinzufügen“</b> tippen.</li>
+        <li>Fertig: Die App startet ab jetzt über das Symbol auf dem Home-Bildschirm.</li>
+      </ol>
+    </section>
+    <section>
+      <h2>Android</h2>
+      <ol>
+        <li>QR-Code mit der <b>Kamera</b> scannen und den Link in <b>Chrome</b> öffnen.</li>
+        <li>Oben rechts auf das <b>Menü ⋮</b> tippen.</li>
+        <li><b>„Zum Startbildschirm hinzufügen“</b> bzw. <b>„App installieren“</b> wählen.</li>
+        <li>Mit <b>„Hinzufügen“</b> / <b>„Installieren“</b> bestätigen.</li>
+        <li>Fertig: Die App startet ab jetzt über das Symbol auf dem Startbildschirm.</li>
+      </ol>
+    </section>
+  </div>
+
+  <p class="note">Updates kommen automatisch – einfach die App öffnen. Die Statistik wird auf dem eigenen Handy gespeichert.</p>
+</div>
+</body>
+</html>

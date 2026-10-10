@@ -3,8 +3,8 @@
   "short_name": "HuH Trainer",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#02723B",
-  "theme_color": "#02723B",
+  "background_color": "#019444",
+  "theme_color": "#019444",
   "lang": "de",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
